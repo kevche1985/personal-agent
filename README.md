@@ -14,7 +14,7 @@ A self-hosted personal AI assistant for task management, budgeting, and bank sta
 ## Quick Start (Docker Compose)
 
 ```bash
-git clone https://github.com/your-username/personal-agent.git && cd personal-agent
+git clone https://github.com/kevche1985/personal-agent.git && cd personal-agent
 cp .env.example .env          # fill in ANTHROPIC_API_KEY and other keys
 docker compose up -d          # starts app, db, redis, openclaw
 ```
