@@ -10,6 +10,8 @@ export const tasks = {
   get: (id) => client.get(`/tasks/${id}`).then((r) => r.data),
   create: (data) => client.post('/tasks', data).then((r) => r.data),
   update: (id, data) => client.patch(`/tasks/${id}`, data).then((r) => r.data),
+  complete: (id, note) => client.post(`/tasks/${id}/complete`, { note }).then((r) => r.data),
+  history: (id) => client.get(`/tasks/${id}/history`).then((r) => r.data),
   delete: (id) => client.delete(`/tasks/${id}`),
   stats: () => client.get('/tasks/stats').then((r) => r.data),
 };

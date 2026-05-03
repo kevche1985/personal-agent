@@ -19,7 +19,10 @@ async function executeTool(name, input) {
       return tasks.map((t) => `• [${t.status}] ${t.title}${t.due_date ? ` (due ${new Date(t.due_date).toLocaleDateString()})` : ''}`).join('\n');
     }
     case 'complete_task': {
-      await taskService.updateTask(input.task_id, { status: 'completed' });
+      const result = await taskService.completeTask(input.task_id);
+      if (result.next_due) {
+        return `Done! Next occurrence: ${new Date(result.next_due).toLocaleDateString()}.`;
+      }
       return `Task marked as completed.`;
     }
     case 'snooze_task': {

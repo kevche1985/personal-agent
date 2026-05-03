@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Filter } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import TaskCard from '../components/TaskCard.jsx';
 import TaskForm from '../components/TaskForm.jsx';
 import { tasks as tasksApi } from '../api/client.js';
@@ -17,6 +17,12 @@ export default function Tasks() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -39,8 +45,17 @@ export default function Tasks() {
   };
 
   const handleComplete = async (id) => {
-    await tasksApi.update(id, { status: 'completed' });
-    load();
+    try {
+      const result = await tasksApi.complete(id);
+      if (result.next_due) {
+        showToast(`Done! ✓  Next: ${new Date(result.next_due).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`);
+      } else {
+        showToast('Task completed!');
+      }
+      load();
+    } catch {
+      showToast('Failed to complete task', 'error');
+    }
   };
 
   const handleDelete = async (id) => {
@@ -49,8 +64,20 @@ export default function Tasks() {
     load();
   };
 
+  const recurringTasks = taskList.filter((t) => t.is_recurring && t.status !== 'completed');
+  const regularTasks = taskList.filter((t) => !t.is_recurring || t.status === 'completed');
+
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
+          toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-gray-900 text-white'
+        }`}>
+          {toast.msg}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
         <button
@@ -87,13 +114,40 @@ export default function Tasks() {
       {error && <p className="text-sm text-red-500 text-center py-8">{error}</p>}
 
       {!loading && !error && (
-        <div className="space-y-3">
-          {taskList.length === 0 ? (
+        <div className="space-y-6">
+          {/* Recurring section */}
+          {recurringTasks.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <RefreshCw size={13} className="text-violet-500" />
+                <span className="text-xs font-semibold text-violet-600 uppercase tracking-wide">Recurring</span>
+              </div>
+              <div className="space-y-2">
+                {recurringTasks.map((t) => (
+                  <TaskCard key={t.id} task={t} onComplete={handleComplete} onDelete={handleDelete} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Regular tasks */}
+          {regularTasks.length > 0 && (
+            <div>
+              {recurringTasks.length > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">One-time</span>
+                </div>
+              )}
+              <div className="space-y-2">
+                {regularTasks.map((t) => (
+                  <TaskCard key={t.id} task={t} onComplete={handleComplete} onDelete={handleDelete} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {taskList.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-12">No tasks found.</p>
-          ) : (
-            taskList.map((t) => (
-              <TaskCard key={t.id} task={t} onComplete={handleComplete} onDelete={handleDelete} />
-            ))
           )}
         </div>
       )}
