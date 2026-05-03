@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "enabled": true,
+    "token": "${OPENCLAW_HOOKS_TOKEN}",
+    "path": "/hooks"
+  },
+  "channels": {
+    "default": "${OPENCLAW_DEFAULT_CHANNEL}"
+  },
+  "memory": {
+    "enabled": true,
+    "driver": "sqlite"
+  }
+}
