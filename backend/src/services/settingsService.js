@@ -7,6 +7,9 @@ const ALLOWED_KEYS = new Set([
   'anthropic_api_key',
   'openai_api_key',
   'openai_model',
+  'openrouter_api_key',
+  'gemini_api_key',
+  'ollama_base_url',
 ]);
 
 export async function getAll() {
@@ -49,15 +52,26 @@ export async function getAnthropicKey() {
 
 /**
  * Returns the effective model for the active provider.
+ * ai_model is now a single free-text field shared across all providers.
  */
 export async function getActiveModel() {
-  const provider = (await get('ai_provider')) || 'anthropic';
-  if (provider === 'openai') {
-    return (await get('openai_model')) || 'gpt-4o';
-  }
   return (await get('ai_model')) || env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 }
 
 export async function getActiveProvider() {
   return (await get('ai_provider')) || 'anthropic';
+}
+
+export async function getOllamaBaseUrl() {
+  return (await get('ollama_base_url')) || 'http://localhost:11434';
+}
+
+export async function getApiKeyForProvider(provider) {
+  switch (provider) {
+    case 'openai':       return (await get('openai_api_key')) || '';
+    case 'openrouter':   return (await get('openrouter_api_key')) || '';
+    case 'gemini':       return (await get('gemini_api_key')) || '';
+    case 'anthropic':
+    default:             return getAnthropicKey();
+  }
 }

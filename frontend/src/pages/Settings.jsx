@@ -1,27 +1,23 @@
 import { useState, useEffect } from 'react';
 import { settings as settingsApi } from '../api/client.js';
 
-const ANTHROPIC_MODELS = [
-  { value: 'claude-opus-4-7', label: 'Claude Opus 4.7 (Most capable)' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Recommended)' },
-  { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Fast)' },
-  { value: 'claude-3-5-sonnet-latest', label: 'Claude 3.5 Sonnet' },
-  { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
+const PROVIDERS = [
+  { value: 'anthropic',   label: 'Anthropic',   hint: 'claude-sonnet-4-6',       keyField: 'anthropic_api_key',   keyPlaceholder: 'sk-ant-…' },
+  { value: 'openai',      label: 'OpenAI',       hint: 'gpt-4o',                  keyField: 'openai_api_key',      keyPlaceholder: 'sk-…' },
+  { value: 'openrouter',  label: 'OpenRouter',   hint: 'openai/gpt-4o',           keyField: 'openrouter_api_key',  keyPlaceholder: 'sk-or-…' },
+  { value: 'gemini',      label: 'Gemini',       hint: 'gemini-2.0-flash',        keyField: 'gemini_api_key',      keyPlaceholder: 'AIza…' },
+  { value: 'ollama',      label: 'Ollama',       hint: 'llama3.2',                keyField: null,                  keyPlaceholder: null },
 ];
 
-const OPENAI_MODELS = [
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-];
+const ALL_KEY_FIELDS = ['anthropic_api_key', 'openai_api_key', 'openrouter_api_key', 'gemini_api_key'];
 
-function KeyInput({ label, id, value, onChange, placeholder }) {
+function KeyInput({ label, id, value, onChange, placeholder, isSet }) {
   const [show, setShow] = useState(false);
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
         {label}
+        {isSet && <span className="ml-2 text-xs font-normal text-green-600">set</span>}
       </label>
       <div className="flex gap-2">
         <input
@@ -45,15 +41,21 @@ function KeyInput({ label, id, value, onChange, placeholder }) {
   );
 }
 
+const EMPTY_FORM = {
+  ai_provider: 'anthropic',
+  ai_model: '',
+  ollama_base_url: 'http://localhost:11434',
+  anthropic_api_key: '',
+  openai_api_key: '',
+  openrouter_api_key: '',
+  gemini_api_key: '',
+};
+
 export default function Settings() {
-  const [form, setForm] = useState({
-    ai_provider: 'anthropic',
-    ai_model: 'claude-sonnet-4-6',
-    anthropic_api_key: '',
-    openai_api_key: '',
-    openai_model: 'gpt-4o',
-  });
-  const [keyStatus, setKeyStatus] = useState({ anthropic_api_key: false, openai_api_key: false });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [keyStatus, setKeyStatus] = useState(
+    Object.fromEntries(ALL_KEY_FIELDS.map((k) => [k, false]))
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -62,19 +64,20 @@ export default function Settings() {
     settingsApi.getAll().then((data) => {
       setForm((prev) => ({
         ...prev,
-        ai_provider: data.ai_provider?.value || 'anthropic',
-        ai_model: data.ai_model?.value || 'claude-sonnet-4-6',
-        openai_model: data.openai_model?.value || 'gpt-4o',
+        ai_provider:    data.ai_provider?.value    || 'anthropic',
+        ai_model:       data.ai_model?.value        || '',
+        ollama_base_url: data.ollama_base_url?.value || 'http://localhost:11434',
       }));
-      setKeyStatus({
-        anthropic_api_key: data.anthropic_api_key?.is_set || false,
-        openai_api_key: data.openai_api_key?.is_set || false,
-      });
+      const status = {};
+      for (const k of ALL_KEY_FIELDS) {
+        status[k] = data[k]?.is_set || false;
+      }
+      setKeyStatus(status);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
-  function set(key, value) {
+  function setField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -83,18 +86,25 @@ export default function Settings() {
     setSaving(true);
     try {
       const payload = {
-        ai_provider: form.ai_provider,
-        ai_model: form.ai_model,
-        openai_model: form.openai_model,
+        ai_provider:     form.ai_provider,
+        ai_model:        form.ai_model,
+        ollama_base_url: form.ollama_base_url,
       };
-      if (form.anthropic_api_key) payload.anthropic_api_key = form.anthropic_api_key;
-      if (form.openai_api_key) payload.openai_api_key = form.openai_api_key;
-
+      for (const k of ALL_KEY_FIELDS) {
+        if (form[k]) payload[k] = form[k];
+      }
       await settingsApi.save(payload);
+
+      const newKeyStatus = { ...keyStatus };
+      for (const k of ALL_KEY_FIELDS) {
+        if (form[k]) newKeyStatus[k] = true;
+      }
+      setKeyStatus(newKeyStatus);
+      setForm((prev) => ({
+        ...prev,
+        ...Object.fromEntries(ALL_KEY_FIELDS.map((k) => [k, ''])),
+      }));
       setToast({ type: 'success', msg: 'Settings saved.' });
-      setForm((prev) => ({ ...prev, anthropic_api_key: '', openai_api_key: '' }));
-      if (form.anthropic_api_key) setKeyStatus((s) => ({ ...s, anthropic_api_key: true }));
-      if (form.openai_api_key) setKeyStatus((s) => ({ ...s, openai_api_key: true }));
     } catch {
       setToast({ type: 'error', msg: 'Failed to save settings.' });
     } finally {
@@ -103,13 +113,10 @@ export default function Settings() {
     }
   }
 
-  const models = form.ai_provider === 'openai' ? OPENAI_MODELS : ANTHROPIC_MODELS;
-  const modelKey = form.ai_provider === 'openai' ? 'openai_model' : 'ai_model';
+  const activeProvider = PROVIDERS.find((p) => p.value === form.ai_provider) || PROVIDERS[0];
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-48 text-gray-400">Loading…</div>
-    );
+    return <div className="flex justify-center items-center h-48 text-gray-400">Loading…</div>;
   }
 
   return (
@@ -119,7 +126,9 @@ export default function Settings() {
 
       {toast && (
         <div className={`mb-6 px-4 py-3 rounded-lg text-sm font-medium ${
-          toast.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+          toast.type === 'success'
+            ? 'bg-green-50 text-green-800 border border-green-200'
+            : 'bg-red-50 text-red-800 border border-red-200'
         }`}>
           {toast.msg}
         </div>
@@ -127,91 +136,111 @@ export default function Settings() {
 
       <form onSubmit={handleSave} className="space-y-8">
 
-        {/* AI Provider */}
+        {/* Provider */}
         <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
           <h2 className="font-semibold text-gray-800">AI Provider</h2>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Provider</label>
-            <div className="flex gap-3">
-              {[
-                { value: 'anthropic', label: 'Anthropic', badge: 'Active' },
-                { value: 'openai', label: 'OpenAI', badge: 'Beta' },
-              ].map(({ value, label, badge }) => (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {PROVIDERS.map(({ value, label }) => (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => set('ai_provider', value)}
-                  className={`flex-1 py-3 px-4 rounded-lg border-2 text-sm font-medium transition-colors text-left ${
+                  onClick={() => setField('ai_provider', value)}
+                  className={`py-2.5 px-3 rounded-lg border-2 text-sm font-medium transition-colors ${
                     form.ai_provider === value
                       ? 'border-brand-500 bg-brand-50 text-brand-700'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-800'
                   }`}
                 >
-                  <span className="font-semibold">{label}</span>
-                  <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
-                    form.ai_provider === value ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {badge}
-                  </span>
+                  {label}
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Model — free text */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-            <select
-              value={form[modelKey]}
-              onChange={(e) => set(modelKey, e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            >
-              {models.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
+            <label htmlFor="ai_model" className="block text-sm font-medium text-gray-700 mb-1">
+              Model
+            </label>
+            <input
+              id="ai_model"
+              type="text"
+              value={form.ai_model}
+              onChange={(e) => setField('ai_model', e.target.value)}
+              placeholder={activeProvider.hint}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Type any model identifier supported by {activeProvider.label}.
+              {form.ai_model === '' && ` Leave blank to use the default: ${activeProvider.hint}`}
+            </p>
           </div>
+
+          {/* Ollama base URL */}
+          {form.ai_provider === 'ollama' && (
+            <div>
+              <label htmlFor="ollama_url" className="block text-sm font-medium text-gray-700 mb-1">
+                Ollama Base URL
+              </label>
+              <input
+                id="ollama_url"
+                type="text"
+                value={form.ollama_base_url}
+                onChange={(e) => setField('ollama_base_url', e.target.value)}
+                placeholder="http://localhost:11434"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+          )}
         </section>
 
         {/* API Keys */}
         <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
           <div className="flex items-start justify-between">
             <h2 className="font-semibold text-gray-800">API Keys</h2>
-            <span className="text-xs text-gray-400">Keys are stored encrypted in the database</span>
+            <span className="text-xs text-gray-400">Stored in the database, not in .env</span>
           </div>
 
           <KeyInput
-            label={
-              <span>
-                Anthropic API Key
-                {keyStatus.anthropic_api_key && (
-                  <span className="ml-2 text-xs text-green-600 font-normal">set</span>
-                )}
-              </span>
-            }
+            label="Anthropic"
             id="anthropic_key"
             value={form.anthropic_api_key}
-            onChange={(v) => set('anthropic_api_key', v)}
+            onChange={(v) => setField('anthropic_api_key', v)}
             placeholder={keyStatus.anthropic_api_key ? 'Leave blank to keep existing key' : 'sk-ant-…'}
+            isSet={keyStatus.anthropic_api_key}
           />
-
           <KeyInput
-            label={
-              <span>
-                OpenAI API Key
-                {keyStatus.openai_api_key && (
-                  <span className="ml-2 text-xs text-green-600 font-normal">set</span>
-                )}
-              </span>
-            }
+            label="OpenAI"
             id="openai_key"
             value={form.openai_api_key}
-            onChange={(v) => set('openai_api_key', v)}
+            onChange={(v) => setField('openai_api_key', v)}
             placeholder={keyStatus.openai_api_key ? 'Leave blank to keep existing key' : 'sk-…'}
+            isSet={keyStatus.openai_api_key}
+          />
+          <KeyInput
+            label="OpenRouter"
+            id="openrouter_key"
+            value={form.openrouter_api_key}
+            onChange={(v) => setField('openrouter_api_key', v)}
+            placeholder={keyStatus.openrouter_api_key ? 'Leave blank to keep existing key' : 'sk-or-…'}
+            isSet={keyStatus.openrouter_api_key}
+          />
+          <KeyInput
+            label="Gemini"
+            id="gemini_key"
+            value={form.gemini_api_key}
+            onChange={(v) => setField('gemini_api_key', v)}
+            placeholder={keyStatus.gemini_api_key ? 'Leave blank to keep existing key' : 'AIza…'}
+            isSet={keyStatus.gemini_api_key}
           />
 
           <p className="text-xs text-gray-400">
-            If a key is set here it overrides the environment variable. Leave blank to use the value from <code>.env</code>.
+            Keys set here override the corresponding <code>.env</code> variable. Ollama runs locally and needs no key.
           </p>
         </section>
 
