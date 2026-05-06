@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -55,6 +55,17 @@ export const chat = {
 export const calendar = {
   authUrl: () => client.get('/calendar/auth').then((r) => r.data),
   events: (limit) => client.get('/calendar/events', { params: { limit } }).then((r) => r.data),
+};
+
+export const settings = {
+  getAll: () => client.get('/settings').then((r) => r.data),
+  save: (updates) => client.put('/settings', updates).then((r) => r.data),
+  set: (key, value) => client.put(`/settings/${key}`, { value }).then((r) => r.data),
+};
+
+export const statementsExtra = {
+  reclassify: (transactionId, category) =>
+    client.patch(`/statements/transactions/${transactionId}`, { category }).then((r) => r.data),
 };
 
 export default client;

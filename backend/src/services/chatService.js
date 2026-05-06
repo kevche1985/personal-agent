@@ -1,4 +1,4 @@
-import { anthropic, MODEL } from '../config/anthropic.js';
+import Anthropic from '@anthropic-ai/sdk';
 import { AppError } from '../utils/AppError.js';
 import { agentTools } from '../llm/tools.js';
 import { SYSTEM_PROMPT } from '../llm/prompts.js';
@@ -6,6 +6,7 @@ import * as taskService from './taskService.js';
 import * as expenseService from './expenseService.js';
 import * as budgetService from './budgetService.js';
 import { floatToCents } from '../utils/dateHelpers.js';
+import * as settingsService from './settingsService.js';
 
 async function executeTool(name, input) {
   switch (name) {
@@ -64,9 +65,13 @@ async function executeTool(name, input) {
 export async function chat(messages) {
   const history = messages.map((m) => ({ role: m.role, content: m.content }));
 
+  const apiKey = await settingsService.getAnthropicKey();
+  const model = await settingsService.getActiveModel();
+  const anthropic = new Anthropic({ apiKey });
+
   try {
     const response = await anthropic.messages.create({
-      model: MODEL,
+      model,
       max_tokens: 1500,
       system: SYSTEM_PROMPT,
       tools: agentTools,
@@ -87,7 +92,7 @@ export async function chat(messages) {
       }
 
       const followUp = await anthropic.messages.create({
-        model: MODEL,
+        model,
         max_tokens: 1000,
         system: SYSTEM_PROMPT,
         tools: agentTools,

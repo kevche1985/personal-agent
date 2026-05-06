@@ -47,6 +47,13 @@ router.get('/:id/findings', wrap(async (req, res) => {
   res.json(findings);
 }));
 
+router.patch('/transactions/:transactionId', wrap(async (req, res) => {
+  const { category } = req.body;
+  if (!category) throw new AppError('Provide { category }', 400);
+  const txn = await statementService.reclassifyTransaction(req.params.transactionId, category);
+  res.json(txn);
+}));
+
 router.patch('/findings/:findingId', wrap(async (req, res) => {
   const { action, reason } = req.body;
   const result = await statementService.updateFinding(req.params.findingId, action, reason);

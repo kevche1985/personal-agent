@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { CheckSquare, DollarSign, FileText, MessageSquare, LayoutDashboard } from 'lucide-react';
+import { CheckSquare, DollarSign, FileText, MessageSquare, LayoutDashboard, Settings } from 'lucide-react';
 
 const links = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,6 +28,19 @@ export default function Navbar() {
           {label}
         </NavLink>
       ))}
+      <div className="ml-auto">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            `flex items-center gap-1.5 text-sm font-medium transition-colors ${
+              isActive ? 'text-brand-600' : 'text-gray-500 hover:text-gray-800'
+            }`
+          }
+        >
+          <Settings size={16} />
+          Settings
+        </NavLink>
+      </div>
     </nav>
   );
 }
